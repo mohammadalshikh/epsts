@@ -5,12 +5,10 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
-import com.epsts.EPSTS.CartItem;
-import com.epsts.EPSTS.ShopItem;
-import com.epsts.EPSTS.CustomCartItem;
+import com.epsts.EPSTS.ScheduleItem;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -23,9 +21,6 @@ import javax.mail.*;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 
-import org.springframework.web.bind.annotation.*;
-
-import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.GetMapping;
 
 @Controller
@@ -85,17 +80,39 @@ public class UserController {
     }
 
     @GetMapping("/schedule")
-    public String viewSchedule(Model model) {
+    public String schedule(Model model) {
 
         if(userlogcheck == 0) {
             return "redirect:/";
         }
         else {
-            ArrayList<CartItem> cartItems = new ArrayList<>();
+            ArrayList<ScheduleItem> scheduleItems = new ArrayList<>();
             try {
                 Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
                 Statement stmt = con.createStatement();
-                ResultSet cartResult = stmt.executeQuery("");
+
+                String query = "SELECT sa.*, f.name " +
+                        "FROM ScheduledAt sa " +
+                        "JOIN User u ON sa.medicareNumb = u.medicareNumb " +
+                        "JOIN Facility f ON sa.facilityID = f.facilityID " +  // Adjust this JOIN condition based on your schema
+                        "WHERE u.username = '" + usernameforclass + "'";
+                ResultSet scheduleResult = stmt.executeQuery(query);
+
+                while (scheduleResult.next()) {
+                    // Create ScheduleItem object and populate data
+                    ScheduleItem scheduleItem = new ScheduleItem(
+                            scheduleResult.getString("name"),
+                            scheduleResult.getDate("date"),
+                            scheduleResult.getTime("startTime"),
+                            scheduleResult.getTime("endTime")
+                    );
+                    // Add schedule item to the list
+                    scheduleItems.add(scheduleItem);
+                }
+                // Add the schedule items to the model
+                model.addAttribute("scheduleItems", scheduleItems);
+
+                scheduleResult.close();
             } catch (Exception e) {
                 System.out.println("Exception:" + e);
             }
@@ -104,13 +121,215 @@ public class UserController {
         }
     }
 
-    @GetMapping("profile")
+    @GetMapping("/report")
+    public String report(RedirectAttributes redirectAttributes) {
+        int medicareNumb = getMedicareNumber();
+        String userType = getUserType();
+
+        // Insert into Infection table
+        if ("Employee".equals(userType)) {
+            insertIntoInfectionTable(String.valueOf(medicareNumb), null, "COVID-19");
+            // Update ScheduledAt table for employees
+            updateScheduledAtTableForEmployee(medicareNumb);
+        } else if ("Student".equals(userType)) {
+            insertIntoInfectionTable(null, String.valueOf(medicareNumb), "COVID-19");
+        }
+
+        // Send email
+        String recipient = "epsts438@gmail.com";
+        String sender = "epsts438@gmail.com";
+        String subject = "Warning";
+        String body = generateEmailBody(medicareNumb, userType);
+        sendEmail(recipient, sender, subject, body);
+
+        // Insert into Log table
+        String emailBody = body.substring(0, Math.min(body.length(), 80));
+        insertIntoLogTable(sender, recipient, subject, emailBody);
+
+        redirectAttributes.addFlashAttribute("reportMessage",
+                "Thank you for reporting symptoms, we hope you feel better soon. All the assignments scheduled for you in the next 14 days have been canceled.");
+
+        return "redirect:/schedule";
+    }
+
+    private int getMedicareNumber() {
+        int medicareNumber = 0;
+        try {
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+            Statement stmt = con.createStatement();
+
+            String query = "SELECT medicareNumb FROM User WHERE username = '" + usernameforclass + "'";
+            ResultSet resultSet = stmt.executeQuery(query);
+
+            if (resultSet.next()) {
+                medicareNumber = resultSet.getInt("medicareNumb");
+            }
+
+            resultSet.close();
+        } catch (Exception e) {
+            System.out.println("Exception:" + e);
+        }
+
+        return medicareNumber;
+    }
+
+    private String getUserType() {
+        String userType = null;
+        try {
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+            Statement stmt = con.createStatement();
+
+            String query = "SELECT type FROM User WHERE username = '" + usernameforclass + "'";
+            ResultSet resultSet = stmt.executeQuery(query);
+
+            if (resultSet.next()) {
+                userType = resultSet.getString("type");
+            }
+
+            resultSet.close();
+        } catch (Exception e) {
+            System.out.println("Exception:" + e);
+        }
+
+        return userType;
+    }
+
+    private String getFacilityName(int medicareNumb) {
+        String facilityName = null;
+        try {
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+            Statement stmt = con.createStatement();
+
+            if(getUserType().equalsIgnoreCase("Employee")) {
+                String query = "SELECT f.name FROM Facility f " +
+                        "JOIN ScheduledAt sa ON sa.facilityId = f.facilityId " +
+                        "WHERE sa.medicareNumb = '" + medicareNumb + "'";
+                ResultSet resultSet = stmt.executeQuery(query);
+                if (resultSet.next()) {
+                    facilityName = resultSet.getString("name");
+                }
+                resultSet.close();
+            }
+            else if (getUserType().equalsIgnoreCase("Student")) {
+                String query = "SELECT f.name FROM Facility f " +
+                        "JOIN StudiesAt sa ON sa.facilityId = f.facilityId " +
+                        "WHERE sa.medicareNumb = '" + medicareNumb + "'";
+                ResultSet resultSet = stmt.executeQuery(query);
+                if (resultSet.next()) {
+                    facilityName = resultSet.getString("name");
+                }
+                resultSet.close();
+            }
+
+        } catch (Exception e) {
+            System.out.println("Exception:" + e);
+        }
+
+        return facilityName;
+    }
+
+    private String getFullName() {
+        String fullName = null;
+        try {
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+            Statement stmt = con.createStatement();
+
+            String query = "SELECT CONCAT(firstName, ' ', lastName) AS fullName FROM User WHERE username = '" + usernameforclass + "'";
+            ResultSet resultSet = stmt.executeQuery(query);
+
+            if (resultSet.next()) {
+                fullName = resultSet.getString("fullName");
+            }
+
+            resultSet.close();
+            stmt.close();
+            con.close();
+        } catch (Exception e) {
+            System.out.println("Exception:" + e);
+        }
+
+        return fullName;
+    }
+
+    // Method to insert into Infection table
+    private void insertIntoInfectionTable(String medicareNumbEmployee, String medicareNumbStudent, String type) {
+        try {
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+            Statement stmt = con.createStatement();
+
+            if ("Employee".equals(getUserType())) {
+                String query = "INSERT INTO Infection (medicareNumbEmployee, medicareNumbStudent, date, type) " +
+                        "VALUES (" + Integer.parseInt(medicareNumbEmployee) + ", " + null + ", CURDATE(), '" + type + "')";
+                stmt.executeUpdate(query);
+            } else if ("Student".equals(getUserType())) {
+                String query = "INSERT INTO Infection (medicareNumbEmployee, medicareNumbStudent, date, type) " +
+                        "VALUES (" + null + ", " + Integer.parseInt(medicareNumbStudent) + ", CURDATE(), '" + type + "')";
+                stmt.executeUpdate(query);
+            }
+
+            stmt.close();
+            con.close();
+        } catch (Exception e) {
+            System.out.println("Exception:" + e);
+        }
+    }
+
+    // Method to update ScheduledAt table for employees
+    private void updateScheduledAtTableForEmployee(int medicareNumb) {
+        try {
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+            Statement stmt = con.createStatement();
+
+            String query = "DELETE FROM ScheduledAt " +
+                    "WHERE medicareNumb = " + medicareNumb + " AND " +
+                    "date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 14 DAY)";
+            stmt.executeUpdate(query);
+
+            stmt.close();
+            con.close();
+        } catch (Exception e) {
+            System.out.println("Exception:" + e);
+        }
+    }
+
+    // Method to generate email body
+    private String generateEmailBody(int medicareNumb, String userType) {
+        String facilityName = getFacilityName(medicareNumb);
+        String message = "";
+
+        if ("Employee".equals(userType)) {
+            message = "who works at " + facilityName + " has been infected with COVID-19 on ";
+        } else if ("Student".equals(userType)) {
+            message = "who studies at " + facilityName + " has been infected with COVID-19 on ";
+        }
+
+        String currentDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+        return getFullName() + " (Medicare Number: " + medicareNumb + ") " + message + currentDate + ".";
+    }
+
+    private void insertIntoLogTable(String sender, String receiver, String subject, String body) {
+        try {
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+            Statement stmt = con.createStatement();
+
+            String query = "INSERT INTO Log (date, sender, receiver, subject, body) " +
+                    "VALUES (CURDATE(), '" + sender + "', '" + receiver + "', '" + subject + "', '" + body + "')";
+            stmt.executeUpdate(query);
+
+            stmt.close();
+            con.close();
+        } catch (Exception e) {
+            System.out.println("Exception:" + e);
+        }
+    }
+
+    @GetMapping("/profile")
     public String profile(Model model) {
         if(userlogcheck == 0) {
             return "redirect:/";
         }
         else {
-            int displayUserID;
+            int displayUserID, displayMedicareNumb;
             String displayFirstName, displayLastName, displayUsername, displayPassword, displayType, displayWorkLocation, displayAddress, displayEmail;
             try {
                 Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
@@ -126,6 +345,7 @@ public class UserController {
                     displayWorkLocation = rst.getString(7);
                     displayAddress = rst.getString(8);
                     displayEmail = rst.getString(9);
+                    displayMedicareNumb = rst.getInt(10);
 
                     model.addAttribute("userID", displayUserID);
                     model.addAttribute("firstName", displayFirstName);
@@ -136,6 +356,7 @@ public class UserController {
                     model.addAttribute("workLocation", displayWorkLocation);
                     model.addAttribute("address", displayAddress);
                     model.addAttribute("email", displayEmail);
+                    model.addAttribute("medicareNumb", displayMedicareNumb);
                 }
             } catch (Exception e) {
                 System.out.println("Exception:" + e);

@@ -1,5 +1,6 @@
-<%@ page import="com.epsts.EPSTS.CartItem" %>
+<%@ page import="com.epsts.EPSTS.ScheduleItem" %>
 <%@ page import="java.util.ArrayList" %>
+<% ArrayList<ScheduleItem> scheduleItems = (ArrayList<ScheduleItem>) request.getAttribute("scheduleItems"); %>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -58,16 +59,6 @@
             font-weight: bold;
         }
 
-        .btn-delete {
-            background-color: #027BFF;
-            color: #fff;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
         .btn-action {
             background-color: #2980b9;
             color: #fff;
@@ -83,11 +74,7 @@
             color: #fff;
         }
 
-        .btn-delete:hover {
-            color: #fff;
-        }
-
-        .empty-cart-message {
+        .empty-schedule-message {
             display: none;
             text-align: center;
             font-size: 18px;
@@ -112,15 +99,6 @@
 
         .footer a:hover {
             color: #027BFF;
-        }
-
-
-        .disabled-input {
-            background-color: transparent;
-            border: none;
-            pointer-events: none;
-            font-size: inherit;
-            color: black;
         }
 
     </style>
@@ -164,54 +142,39 @@
     <h1>My Schedule</h1>
 
     <div class="d-flex justify-content-end mb-3">
-        <form action="/clearcart" method="get">
-            <button type="submit" id="clearCart" class="btn btn-action">Clear cart</button>
+        <form action="/report" method="get">
+            <button type="submit" id="report" class="btn btn-action">Report COVID-19 symptoms</button>
         </form>
-        <form action="/movecustomtocart" method="get">
-            <button id="add" type="submit" class="btn btn-action">Add custom cart to cart</button>
-        </form>
-        <a id="show" href="/custom-cart" class="btn btn-action">Show custom cart</a>
-        <input id="edit" type="button" value="Edit quantities" class="btn btn-action" onClick="editMode()">
-
-        <button id="confirm" hidden type="submit" form="updateQuantity" class="btn btn-action">Confirm changes</button>
-        <input hidden id="cancel" type="button" value="Cancel" class="btn btn-action" onClick="cancel()">
     </div>
-    <br>
+    ${reportMessage}
+    <br> <br>
     <form action="/updateCartItemQuantity" id="updateQuantity" method="get">
-        <table class="table" id="cartTable">
+        <table class="table" id="scheduleTable">
             <thead>
             <tr>
                 <th></th>
-                <th>Product Name</th>
-                <th>Quantity</th>
-                <th>Total Price</th>
+                <th style="text-align: center;">Date</th>
+                <th style="text-align: center;">Facility</th>
+                <th style="text-align: center;">Start time</th>
+                <th style="text-align: center;">End time</th>
                 <th></th>
             </tr>
             </thead>
             <tbody>
-            <%-- Get the cartItems ArrayList from the Model object --%>
-            <% ArrayList<CartItem> cartItems = (ArrayList<CartItem>) request.getAttribute("cartItems"); %>
 
             <%-- Loop through the cart items and populate the table --%>
-            <% for (CartItem item : cartItems) { %>
+            <% for (ScheduleItem item : scheduleItems) { %>
             <tr>
-                <td></td>
-                <td style="width: 250px" id="1"><%= item.getProductName() %>
+                <td style="width: 50px;"></td>
+                <td style="width: 150px; text-align: center;" id="1"><%= item.getDate() %>
                 </td>
-                <td style="width: 250px">
-                    <input pattern="[1-9][0-9]*" min="1" style="width: 80px" class="disabled-input" disabled
-                           type="number" name="<%= item.getProductID() %>|quantity" value="<%= item.getQuantity() %>">
-                    <!-- Add a hidden input to store the productID -->
-                    <input type="hidden" name="productIDs" value="<%= item.getProductID() %>">
+                <td style="width: 150px; text-align: center;" ><%= item.getFacility() %>
                 </td>
-                <td style="width: 250px">$<%= item.getTotalPrice() %>
+                <td style="width: 100px; text-align: center;"><%= item.getStartTime() %>
                 </td>
-                <td>
-                    <form action="/deleteitem" method="get">
-                        <input type="hidden" name="productID" value="<%= item.getProductID() %>">
-                        <button type="submit" class="btn btn-delete">Remove</button>
-                    </form>
+                <td style="width: 100px; text-align: center;"><%= item.getEndTime() %>
                 </td>
+                <td style="width: 50px;"></td>
             </tr>
             <% } %>
             </tbody>
@@ -219,7 +182,7 @@
     </form>
 
     <br>
-    <p class="empty-cart-message" id="emptyCartMessage">Your schedule is currently empty, add some assignments to view them
+    <p class="empty-schedule-message" id="emptyScheduleMessage">Your schedule is currently empty, add some assignments to view them
         here.</p>
 </div>
 
@@ -238,40 +201,13 @@
     function logout() {
         document.getElementById('logoutForm').submit();
     }
-    const cartTable = document.getElementById("cartTable");
-    const clearCartButton = document.getElementById("clearCart");
-    const emptyCartMessage = document.getElementById("emptyCartMessage");
+    const emptyScheduleMessage = document.getElementById("emptyScheduleMessage");
+    const scheduleTable = document.getElementById('scheduleTable');
     const tdFirst = document.getElementById("1");
-    const total = document.getElementById('total');
-    const checkOut = document.getElementById('checkOut');
 
     if (tdFirst == null) {
-        cartTable.style.display = 'none';
-        clearCartButton.style.display = 'none';
-        emptyCartMessage.style.display = 'block';
-        total.style.display = 'none';
-        checkOut.style.display = 'none';
-        document.getElementById("edit").hidden = true;
-    }
-
-    function editMode() {
-        document.getElementById("add").hidden = true;
-        document.getElementById("clearCart").hidden = true;
-        document.getElementById("show").hidden = true;
-        document.getElementById("edit").hidden = true;
-        document.getElementById("confirm").hidden = false;
-        document.getElementById("cancel").hidden = false;
-
-        const quantityInputs = document.querySelectorAll('input[name*="|quantity"]');
-
-        // Loop through each quantity input and update its attributes and styles
-        quantityInputs.forEach((input) => {
-            // Remove the "disabled" attribute from the input
-            input.removeAttribute("disabled");
-            input.classList.remove("disabled-input");
-            input.style.backgroundColor = "white";
-            input.style.border = "1px solid #ccc";
-        });
+        emptyScheduleMessage.style.display = 'block';
+        scheduleTable.style.display = 'none';
     }
 
 
