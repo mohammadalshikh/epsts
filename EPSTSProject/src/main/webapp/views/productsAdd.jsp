@@ -51,7 +51,7 @@
             <div class="col-sm-5">
                 <%
                     try {
-                        String url = "jdbc:mysql://localhost:3306/springproject";
+                        String url = "jdbc:mysql://localhost:3306/EPSTS";
                         Class.forName("com.mysql.cj.jdbc.Driver");
                         Connection con = DriverManager.getConnection(url, "root", "12345678");
                         Statement stmt = con.createStatement();

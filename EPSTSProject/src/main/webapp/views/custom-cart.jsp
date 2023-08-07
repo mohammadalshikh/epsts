@@ -1,4 +1,4 @@
-<%@ page import="com.jtspringproject.JtSpringProject.CustomCartItem" %>
+<%@ page import="com.epsts.EPSTS.CustomCartItem" %>
 <%@ page import="java.util.ArrayList" %>
 <!DOCTYPE html>
 <html lang="en">

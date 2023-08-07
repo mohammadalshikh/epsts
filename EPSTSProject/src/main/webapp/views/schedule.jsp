@@ -1,11 +1,11 @@
-<%@ page import="com.jtspringproject.JtSpringProject.CartItem" %>
+<%@ page import="com.epsts.EPSTS.CartItem" %>
 <%@ page import="java.util.ArrayList" %>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BestFood</title>
+    <title>EPSTS</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
     <style>
@@ -39,15 +39,13 @@
         }
 
         .navbar-brand {
-            font-family: 'Pacifico', cursive;
             font-size: 28px;
             color: #fff;
         }
 
         .navbar-brand:hover {
-            font-family: 'Pacifico', cursive;
             font-size: 28px;
-            color: #e74c3c;
+            color: #027BFF;
         }
 
         .navbar-nav .nav-link {
@@ -56,12 +54,12 @@
         }
 
         .navbar-nav .nav-link:hover {
-            color: #e74c3c;
+            color: #027BFF;
             font-weight: bold;
         }
 
         .btn-delete {
-            background-color: #e74c3c;
+            background-color: #027BFF;
             color: #fff;
             border: none;
             padding: 5px 10px;
@@ -96,23 +94,6 @@
             margin-top: 20px;
         }
 
-        #total {
-            font-size: 24px;
-            text-align: center;
-        }
-
-        #checkOut {
-            display: block;
-            width: 200px; /* Set the width of the button */
-            margin: 0 auto; /* Center the button horizontally */
-            padding: 10px 20px; /* Add padding to the button */
-            font-size: 18px; /* Set the font size of the button text */
-        }
-
-        #checkOut:hover {
-            color: #fff;
-        }
-
         .footer {
             background-color: #292929;
             color: #fff;
@@ -130,7 +111,7 @@
         }
 
         .footer a:hover {
-            color: #e74c3c;
+            color: #027BFF;
         }
 
 
@@ -148,8 +129,8 @@
 <div class="bg-image-wrapper">
     <nav class="navbar navbar-expand-lg">
         <div class="container">
-            <a class="navbar-brand" href="/index">
-                BestFood
+            <a class="navbar-brand" href="/home">
+                EPSTS
             </a>
             <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
                     aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
@@ -159,20 +140,19 @@
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
                 <ul class="navbar-nav ml-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="/index">Home</a>
+                        <a class="nav-link" href="/home">Home</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/shop">Shop</a>
+                        <a class="nav-link" href="/schedule">Schedule</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/cart">Cart</a>
+                        <a class="nav-link" href="/profile">Profile</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/profileDisplay">Profile</a>
+                        <a class="nav-link" href="#" onclick="logout()">Logout</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/">Logout</a>
-                    </li>
+                    <form hidden id="logoutForm" method="POST" action="/logoutUser">
+                    </form>
                 </ul>
             </div>
         </div>
@@ -181,7 +161,7 @@
 
 <div class="container">
     <br><br>
-    <h1>My Cart</h1>
+    <h1>My Schedule</h1>
 
     <div class="d-flex justify-content-end mb-3">
         <form action="/clearcart" method="get">
@@ -239,16 +219,14 @@
     </form>
 
     <br>
-    <p class="empty-cart-message" id="emptyCartMessage">Your cart is currently empty, add some products to view them
-        here. <br><br><a href="/shop">Go to shop page</a></p>
-    <p id="total">Total: $${total}</p>
-    <a id="checkOut" href="/buy" class="btn btn-delete">Check out</a>
+    <p class="empty-cart-message" id="emptyCartMessage">Your schedule is currently empty, add some assignments to view them
+        here.</p>
 </div>
 
 <br><br>
 
 <footer class="footer">
-    <p>&copy; 2023 BestFood</p>
+    <p>&copy; 2023 EPSTS</p>
     <div>
         <a href="/contact">Contact Us</a>
     </div>
@@ -257,6 +235,9 @@
 <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
 <script>
+    function logout() {
+        document.getElementById('logoutForm').submit();
+    }
     const cartTable = document.getElementById("cartTable");
     const clearCartButton = document.getElementById("clearCart");
     const emptyCartMessage = document.getElementById("emptyCartMessage");

@@ -9,7 +9,7 @@
           integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
     <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.0/css/all.css"
           integrity="sha384-lZN37f5QGtY3VHgisS14W3ExzMWZxybE1SJSEsQp9S+oqd12jhcu+A56Ebc1zFSJ" crossorigin="anonymous">
-    <title>Document</title>
+    <title>EPSTS</title>
     <style>
         .error-message {
             color: red;
@@ -26,7 +26,7 @@
 
     <div class="jumbotron border col-sm-5 mx-auto">
         <h2 class="text-center">Admin Login</h2><br>
-        <form action="loginvalidate" method="post">
+        <form action="/admin" method="post">
             <div class="form-group">
                 <input type="text" name="username" id="username" placeholder="Username" required
                        class="form-control form-control-lg border border-danger">
@@ -40,6 +40,7 @@
             <input type="submit" value="Log in" class="btn btn-primary btn-block">
             <br>
             <span>User login page from <a class="linkControl" href="/">here</a></span>
+        </form>
     </div>
 
 </div>

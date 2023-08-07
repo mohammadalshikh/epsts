@@ -1,4 +1,4 @@
-package com.jtspringproject.JtSpringProject;
+package com.epsts.EPSTS;
 
 public class CustomCartItem {
     private String productName;
