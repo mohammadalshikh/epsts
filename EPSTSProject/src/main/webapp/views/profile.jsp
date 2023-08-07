@@ -109,41 +109,41 @@
     <div class="col-sm-6 mx-auto">
         <h3 style="margin-top: 10px">User Profile</h3>
         <br>
-        <form action="updateuser" method="post">
+        <form action="updateUser" method="post">
             <div class="form-group">
-                <label for="email">Email address</label>
-                <input type="email" class="form-control form-control-lg" required minlength="6" placeholder="Email*"
-                       value="${email}" required name="email" id="email"
-                       aria-describedby="emailHelp">
+                <label for="firstName">First name</label>
+                <input type="text" class="form-control form-control-lg" readonly value="${firstName}" name="firstName" id="firstName">
             </div>
             <div class="form-group">
-                <label for="firstName">Username</label>
-                <input type="hidden" name="userid" value="${userid}">
-                <input type="text" name="username" id="firstName" required placeholder="Your Username*"
-                       value="${username}" required class="form-control form-control-lg">
+                <label for="lastName">Last name</label>
+                <input type="text" class="form-control form-control-lg" readonly value="${lastName}" name="lastName" id="lastName">
+            </div>
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" name="username" id="username" required value="${username}" class="form-control form-control-lg">
             </div>
             <div class="form-group">
                 <label for="password">Password</label>
-                <input type="password" class="form-control form-control-lg" required placeholder="Password*"
-                       value="${password }" required name="password"
-                       id="password"
-                       pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*?[~`!@#$%\^&*()\-_=+[\]{};:\x27.,\x22\\|/?><]).{8,}"
-                       title="Must contain: at least one number, one uppercase letter, one lowercase letter,
-                       one special character, and 8 or more characters" required>
+                <input type="password" class="form-control form-control-lg" value="${password}" required name="password" id="password" pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*?[~`!@#$%\^&*()\-_=+[\]{};:\x27.,\x22\\|/?><]).{8,}" title="Must contain: at least one number, one uppercase letter, one lowercase letter, one special character, and 8 or more characters">
                 <input type="checkbox" onclick="showPassword()"> Show password
             </div>
             <div class="form-group">
-                <label for="address">Address</label>
-                <textarea class="form-control form-control-lg" rows="3" placeholder="Enter Your Address"
-                          name="address">${address}</textarea>
+                <label for="type">Type</label>
+                <input type="text" name="type" id="type" readonly value="${type}" required class="form-control form-control-lg">
             </div>
             <div class="form-group">
-                <label>User type</label>
-                <input class="form-control form-control-lg" readonly="true" value="${userCoupons}">
+                <label for="type">Works/Studies at</label>
+                <input type="text" name="workLocation" id="workLocation" readonly value="${workLocation}" class="form-control form-control-lg">
             </div>
-
+            <div class="form-group">
+                <label for="address">Address</label>
+                <textarea class="form-control form-control-lg" rows="3" placeholder="Optional" name="address" id="address">${address}</textarea>
+            </div>
+            <div class="form-group">
+                <label for="email">Email address</label>
+                <input type="email" class="form-control form-control-lg" required minlength="6" value="${email}" name="email" id="email" aria-describedby="emailHelp">
+            </div>
             <input type="submit" value="Update Profile" class="btn btn-primary btn-block"><br>
-
         </form>
     </div>
 </div>
