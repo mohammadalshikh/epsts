@@ -1,12 +1,14 @@
 package com.epsts.EPSTS.controller;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Statement;
+import java.sql.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Calendar;
+import java.text.SimpleDateFormat;
 
 import com.epsts.EPSTS.ScheduleItem;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -100,12 +102,13 @@ public class UserController {
 
                 while (scheduleResult.next()) {
                     // Create ScheduleItem object and populate data
-                    ScheduleItem scheduleItem = new ScheduleItem(
-                            scheduleResult.getString("name"),
-                            scheduleResult.getDate("date"),
-                            scheduleResult.getTime("startTime"),
-                            scheduleResult.getTime("endTime")
-                    );
+                    String name = scheduleResult.getString("name");
+                    Date date = scheduleResult.getDate("date");
+                    Time startTime = scheduleResult.getTime("startTime");
+                    Time endTime = scheduleResult.getTime("endTime");
+                    int dayOfWeek = getDayOfWeekFromDate(date);
+
+                    ScheduleItem scheduleItem = new ScheduleItem(name, date, startTime, endTime, dayOfWeek);
                     // Add schedule item to the list
                     scheduleItems.add(scheduleItem);
                 }
@@ -144,13 +147,86 @@ public class UserController {
 
         // Insert into Log table
         String emailBody = body.substring(0, Math.min(body.length(), 80));
-        insertIntoLogTable(sender, recipient, subject, emailBody);
+        insertIntoLogTable(recipient, sender, subject, emailBody);
 
         redirectAttributes.addFlashAttribute("reportMessage",
                 "Thank you for reporting symptoms, we hope you feel better soon. All the assignments scheduled for you in the next 14 days have been canceled.");
 
         return "redirect:/schedule";
     }
+
+    // Method to generate email body
+    private String generateEmailBody(int medicareNumb, String userType) {
+        String facilityName = getFacilityName(medicareNumb);
+        String message = "";
+
+        if ("Employee".equals(userType)) {
+            message = "who works at " + facilityName + " has been infected with COVID-19 on ";
+        } else if ("Student".equals(userType)) {
+            message = "who studies at " + facilityName + " has been infected with COVID-19 on ";
+        }
+
+        String currentDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+        return getFullName() + " (Medicare Number: " + medicareNumb + ") " + message + currentDate + ".";
+    }
+
+    // Method to insert into Infection table
+    private void insertIntoInfectionTable(String medicareNumbEmployee, String medicareNumbStudent, String type) {
+        try {
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+            Statement stmt = con.createStatement();
+
+            if ("Employee".equals(getUserType())) {
+                String query = "INSERT INTO Infection (medicareNumbEmployee, medicareNumbStudent, date, type) " +
+                        "VALUES (" + Integer.parseInt(medicareNumbEmployee) + ", " + null + ", CURDATE(), '" + type + "')";
+                stmt.executeUpdate(query);
+            } else if ("Student".equals(getUserType())) {
+                String query = "INSERT INTO Infection (medicareNumbEmployee, medicareNumbStudent, date, type) " +
+                        "VALUES (" + null + ", " + Integer.parseInt(medicareNumbStudent) + ", CURDATE(), '" + type + "')";
+                stmt.executeUpdate(query);
+            }
+
+            stmt.close();
+            con.close();
+        } catch (Exception e) {
+            System.out.println("Exception:" + e);
+        }
+    }
+
+    static void insertIntoLogTable(String recipient, String sender, String subject, String body) {
+        try {
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+            Statement stmt = con.createStatement();
+
+            String query = "INSERT INTO Log (date, sender, receiver, subject, body) " +
+                    "VALUES (CURDATE(), '" + sender + "', '" + recipient + "', '" + subject + "', '" + body + "')";
+            stmt.executeUpdate(query);
+
+            stmt.close();
+            con.close();
+        } catch (Exception e) {
+            System.out.println("Exception:" + e);
+        }
+    }
+
+    // Method to update ScheduledAt table for employees
+    private void updateScheduledAtTableForEmployee(int medicareNumb) {
+        try {
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+            Statement stmt = con.createStatement();
+
+            String query = "DELETE FROM ScheduledAt " +
+                    "WHERE medicareNumb = " + medicareNumb + " AND " +
+                    "date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 14 DAY)";
+            stmt.executeUpdate(query);
+
+            stmt.close();
+            con.close();
+        } catch (Exception e) {
+            System.out.println("Exception:" + e);
+        }
+    }
+
 
     private int getMedicareNumber() {
         int medicareNumber = 0;
@@ -251,76 +327,11 @@ public class UserController {
         return fullName;
     }
 
-    // Method to insert into Infection table
-    private void insertIntoInfectionTable(String medicareNumbEmployee, String medicareNumbStudent, String type) {
-        try {
-            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
-            Statement stmt = con.createStatement();
-
-            if ("Employee".equals(getUserType())) {
-                String query = "INSERT INTO Infection (medicareNumbEmployee, medicareNumbStudent, date, type) " +
-                        "VALUES (" + Integer.parseInt(medicareNumbEmployee) + ", " + null + ", CURDATE(), '" + type + "')";
-                stmt.executeUpdate(query);
-            } else if ("Student".equals(getUserType())) {
-                String query = "INSERT INTO Infection (medicareNumbEmployee, medicareNumbStudent, date, type) " +
-                        "VALUES (" + null + ", " + Integer.parseInt(medicareNumbStudent) + ", CURDATE(), '" + type + "')";
-                stmt.executeUpdate(query);
-            }
-
-            stmt.close();
-            con.close();
-        } catch (Exception e) {
-            System.out.println("Exception:" + e);
-        }
-    }
-
-    // Method to update ScheduledAt table for employees
-    private void updateScheduledAtTableForEmployee(int medicareNumb) {
-        try {
-            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
-            Statement stmt = con.createStatement();
-
-            String query = "DELETE FROM ScheduledAt " +
-                    "WHERE medicareNumb = " + medicareNumb + " AND " +
-                    "date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 14 DAY)";
-            stmt.executeUpdate(query);
-
-            stmt.close();
-            con.close();
-        } catch (Exception e) {
-            System.out.println("Exception:" + e);
-        }
-    }
-
-    // Method to generate email body
-    private String generateEmailBody(int medicareNumb, String userType) {
-        String facilityName = getFacilityName(medicareNumb);
-        String message = "";
-
-        if ("Employee".equals(userType)) {
-            message = "who works at " + facilityName + " has been infected with COVID-19 on ";
-        } else if ("Student".equals(userType)) {
-            message = "who studies at " + facilityName + " has been infected with COVID-19 on ";
-        }
-
-        String currentDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
-        return getFullName() + " (Medicare Number: " + medicareNumb + ") " + message + currentDate + ".";
-    }
-
-    private void insertIntoLogTable(String sender, String receiver, String subject, String body) {
-        try {
-            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
-            Statement stmt = con.createStatement();
-
-            String query = "INSERT INTO Log (date, sender, receiver, subject, body) " +
-                    "VALUES (CURDATE(), '" + sender + "', '" + receiver + "', '" + subject + "', '" + body + "')";
-            stmt.executeUpdate(query);
-
-            stmt.close();
-            con.close();
-        } catch (Exception e) {
-            System.out.println("Exception:" + e);
-        }
+    static int getDayOfWeekFromDate(Date date) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(date);
+        // Calendar.DAY_OF_WEEK returns values from 1 (Sunday) to 7 (Saturday)
+        return calendar.get(Calendar.DAY_OF_WEEK);
     }
 
     @GetMapping("/profile")
@@ -413,6 +424,7 @@ public class UserController {
                 "We will get back to you as soon as possible.\n\nBest regards,\nThe EPSTS Team";
 
         sendEmail(email, "epsts438@gmail.com", "Your Contact Request", userMessage);
+        insertIntoLogTable(email, "epsts438@gmail.com", "Your Contact Request", userMessage);
 
         // Code to send the second email to the admin email
         String adminMessage = "A new contact request has been submitted:\n\n" +
@@ -423,6 +435,7 @@ public class UserController {
                 "Inquiry Type: " + inquiryType + "\n";
 
         sendEmail("epsts438@gmail.com", email, "New Contact Request", adminMessage);
+        insertIntoLogTable("epsts438@gmail.com", email, "New Contact Request", adminMessage);
 
         redirectAttributes.addFlashAttribute("successMessage", "Your contact request has been submitted successfully!");
 
@@ -430,7 +443,7 @@ public class UserController {
     }
 
     // Helper method to send emails using JavaMail API
-    private void sendEmail(String recipient, String sender, String subject, String body) {
+    static void sendEmail(String recipient, String sender, String subject, String body) {
         // SMTP server configuration
         String host = "smtp.gmail.com";
         String port = "587";
@@ -464,10 +477,8 @@ public class UserController {
             // Send the email
             Transport.send(message);
 
-            System.out.println("Email sent successfully to " + recipient);
         } catch (MessagingException e) {
             e.printStackTrace();
-            System.err.println("Failed to send email to " + recipient);
         }
     }
 }

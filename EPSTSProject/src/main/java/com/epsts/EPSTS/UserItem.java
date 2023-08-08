@@ -1,12 +1,12 @@
 package com.epsts.EPSTS;
 
-public class CustomCartItem {
+public class UserItem {
     private String productName;
     private int quantity;
     private float totalPrice;
     private int productID;
 
-    public CustomCartItem(String productName, int quantity, float totalPrice, int productID) {
+    public UserItem(String productName, int quantity, float totalPrice, int productID) {
         this.productName = productName;
         this.quantity = quantity;
         this.totalPrice = totalPrice;

@@ -182,8 +182,7 @@
     </form>
 
     <br>
-    <p class="empty-schedule-message" id="emptyScheduleMessage">Your schedule is currently empty, add some assignments to view them
-        here.</p>
+    <p class="empty-schedule-message" id="emptyScheduleMessage">Your schedule is currently empty.</p>
 </div>
 
 <br><br>

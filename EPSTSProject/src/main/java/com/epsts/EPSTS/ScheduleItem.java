@@ -1,19 +1,20 @@
 package com.epsts.EPSTS;
 import java.sql.Time;
-import java.sql.Date;
+import java.util.Date;
 
 public class ScheduleItem {
-
     private String facility;
     private Date date;
     private Time startTime;
     private Time endTime;
+    private int dayOfWeek;
 
-    public ScheduleItem(String facility, Date date, Time startTime, Time endTime) {
+    public ScheduleItem(String facility, Date date, Time startTime, Time endTime, int dayOfWeek) {
         this.facility = facility;
         this.date = date;
         this.startTime = startTime;
         this.endTime = endTime;
+        this.dayOfWeek = dayOfWeek;
     }
 
     public String getFacility() {
@@ -32,6 +33,10 @@ public class ScheduleItem {
         return startTime;
     }
 
+    public int getDayOfWeek() {
+        return dayOfWeek;
+    }
+
     public void setFacility(String facility) {
         this.facility = facility;
     }
@@ -46,5 +51,9 @@ public class ScheduleItem {
 
     public void setStartTime(Time startTime) {
         this.startTime = startTime;
+    }
+
+    public void setDayOfWeek(int dayOfWeek) {
+        this.dayOfWeek = dayOfWeek;
     }
 }
