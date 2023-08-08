@@ -162,7 +162,6 @@
             </thead>
             <tbody>
 
-            <%-- Loop through the cart items and populate the table --%>
             <% for (ScheduleItem item : scheduleItems) { %>
             <tr>
                 <td style="width: 50px;"></td>

@@ -806,3 +806,44 @@ VALUES
     (11,175037407, NULL, '2022-01-12', 'COVID-19'),
     (12 ,103846593, NULL, '2023-07-23', 'SARS-CoV-2 Variant'),
     (13,NULL, 617283945, '2023-07-15', 'COVID-19');
+
+DELIMITER //
+
+CREATE TRIGGER increment_dose
+    BEFORE INSERT ON Vaccine
+    FOR EACH ROW
+BEGIN
+    DECLARE latest_dose INT;
+    SET latest_dose = IFNULL(
+            (SELECT MAX(doseNumb) FROM Vaccine
+             WHERE (medicareNumbStudent = NEW.medicareNumbStudent OR medicareNumbEmployee = NEW.medicareNumbEmployee) AND type = NEW.type),
+            0
+        );
+    SET NEW.doseNumb = latest_dose + 1;
+END;
+//
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE insert_vaccine(
+    in_medicareNumbStudent INT,
+    in_medicareNumbEmployee INT,
+    in_date DATE,
+    in_type VARCHAR(255)
+)
+BEGIN
+    INSERT INTO Vaccine (
+        medicareNumbStudent,
+        medicareNumbEmployee,
+        date,
+        type
+    ) VALUES (
+                 in_medicareNumbStudent,
+                 in_medicareNumbEmployee,
+                 in_date,
+                 in_type
+             );
+END;
+

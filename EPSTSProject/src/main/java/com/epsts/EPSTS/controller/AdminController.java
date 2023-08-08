@@ -9,12 +9,16 @@ import java.util.Date;
 
 import com.epsts.EPSTS.Employee;
 import com.epsts.EPSTS.ScheduleItem;
+import com.epsts.EPSTS.UserItem;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
 @Controller
 public class AdminController {
     int adminlogcheck = 0;
@@ -74,14 +78,106 @@ public class AdminController {
     }
 
     @GetMapping("/admin/users")
-    public String infected(Model model) {
+    public String users(Model model) {
         if (adminlogcheck == 0) {
             return "redirect:/admin";
         }
         else {
+            ArrayList<UserItem> userItems = new ArrayList<>();
+            try {
+                Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+                Statement stmt = con.createStatement();
+
+                String query = "SELECT * FROM User";
+                ResultSet scheduleResult = stmt.executeQuery(query);
+
+                while (scheduleResult.next()) {
+                    int userID = scheduleResult.getInt("userID");
+                    String firstName = scheduleResult.getString("firstName");
+                    String lastName = scheduleResult.getString("lastName");
+                    String username = scheduleResult.getString("username");
+                    String type = scheduleResult.getString("type");
+                    String workLocation = scheduleResult.getString("workLocation");
+                    String address = scheduleResult.getString("address");
+                    String email = scheduleResult.getString("email");
+                    int medicareNumb = scheduleResult.getInt("medicareNumb");
+
+                    UserItem userItem = new UserItem(userID, firstName, lastName, username, type, workLocation, address, email, medicareNumb);
+                    userItems.add(userItem);
+                }
+                // Add the schedule items to the model
+                model.addAttribute("userItems", userItems);
+            }
+            catch (Exception e) {
+
+            }
             return "users";
         }
     }
+
+    @GetMapping("/infected")
+    public String infected(RedirectAttributes redirectAttributes, @RequestParam ("infected") int medicareNumb) {
+        String type = "COVID-19";
+        try {
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+            Statement stmt = con.createStatement();
+
+                if ("Employee".equals(UserController.getUserType(medicareNumb))) {
+                    String query = "INSERT INTO Infection (medicareNumbEmployee, medicareNumbStudent, date, type) " +
+                            "VALUES (" + medicareNumb + ", " + null + ", CURDATE(), '" + type + "')";
+                    stmt.executeUpdate(query);
+                    UserController.updateScheduledAtTableForEmployee(medicareNumb);
+                } else if ("Student".equals(UserController.getUserType(medicareNumb))) {
+                    String query = "INSERT INTO Infection (medicareNumbEmployee, medicareNumbStudent, date, type) " +
+                            "VALUES (" + null + ", " + medicareNumb + ", CURDATE(), '" + type + "')";
+                    stmt.executeUpdate(query);
+                }
+        }
+        catch (Exception e) {
+
+        }
+
+        // Send email
+        String recipient = "epsts438@gmail.com";
+        String sender = "epsts438@gmail.com";
+        String subject = "Warning";
+        String body = UserController.generateEmailBody(medicareNumb, UserController.getUserType(medicareNumb));
+        UserController.sendEmail(recipient, sender, subject, body);
+
+        // Insert into Log table
+        String emailBody = body.substring(0, Math.min(body.length(), 80));
+        UserController.insertIntoLogTable(recipient, sender, subject, emailBody);
+
+        redirectAttributes.addFlashAttribute("infectedMessage", "Person with medicare number: " + medicareNumb + " has been declared infected with COVID-19.");
+
+        return "redirect:/admin/users";
+    }
+
+    @GetMapping("/vaccinated")
+    public String vaccinate(RedirectAttributes redirectAttributes, @RequestParam ("vaccinated") int medicareNumb) {
+        String type = "Moderna";
+        try {
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+            Statement stmt = con.createStatement();
+            if ("Employee".equals(UserController.getUserType(medicareNumb))) {
+                String query = "INSERT INTO Vaccine (medicareNumbEmployee, date, type)" +
+                        "VALUES (" + medicareNumb + ", " + " CURDATE(), '" + type + "')";
+                stmt.executeUpdate(query);
+            } else if ("Student".equals(UserController.getUserType(medicareNumb))) {
+                String query = "INSERT INTO Vaccine (medicareNumbStudent, date, type)" +
+                        "VALUES (" + medicareNumb + ", " + "CURDATE(), '" + type + "')";
+                stmt.executeUpdate(query);
+            }
+        }
+        catch (Exception e) {
+
+        }
+
+        redirectAttributes.addFlashAttribute("vaccinatedMessage", "Person with medicare number: " + medicareNumb + " has been declared vaccinated.");
+
+        return "redirect:/admin/users";
+    }
+
 
     @ResponseBody
     @GetMapping("/checkUsernameAvailability")

@@ -96,12 +96,11 @@ public class UserController {
                 String query = "SELECT sa.*, f.name " +
                         "FROM ScheduledAt sa " +
                         "JOIN User u ON sa.medicareNumb = u.medicareNumb " +
-                        "JOIN Facility f ON sa.facilityID = f.facilityID " +  // Adjust this JOIN condition based on your schema
+                        "JOIN Facility f ON sa.facilityID = f.facilityID " +
                         "WHERE u.username = '" + usernameforclass + "'";
                 ResultSet scheduleResult = stmt.executeQuery(query);
 
                 while (scheduleResult.next()) {
-                    // Create ScheduleItem object and populate data
                     String name = scheduleResult.getString("name");
                     Date date = scheduleResult.getDate("date");
                     Time startTime = scheduleResult.getTime("startTime");
@@ -127,7 +126,7 @@ public class UserController {
     @GetMapping("/report")
     public String report(RedirectAttributes redirectAttributes) {
         int medicareNumb = getMedicareNumber();
-        String userType = getUserType();
+        String userType = getUserType(medicareNumb);
 
         // Insert into Infection table
         if ("Employee".equals(userType)) {
@@ -156,7 +155,7 @@ public class UserController {
     }
 
     // Method to generate email body
-    private String generateEmailBody(int medicareNumb, String userType) {
+    static String generateEmailBody(int medicareNumb, String userType) {
         String facilityName = getFacilityName(medicareNumb);
         String message = "";
 
@@ -167,7 +166,7 @@ public class UserController {
         }
 
         String currentDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
-        return getFullName() + " (Medicare Number: " + medicareNumb + ") " + message + currentDate + ".";
+        return getFullName(medicareNumb) + " (Medicare Number: " + medicareNumb + ") " + message + currentDate + ".";
     }
 
     // Method to insert into Infection table
@@ -175,12 +174,11 @@ public class UserController {
         try {
             Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
             Statement stmt = con.createStatement();
-
-            if ("Employee".equals(getUserType())) {
+            if ("Employee".equals(getUserType(getMedicareNumber()))) {
                 String query = "INSERT INTO Infection (medicareNumbEmployee, medicareNumbStudent, date, type) " +
                         "VALUES (" + Integer.parseInt(medicareNumbEmployee) + ", " + null + ", CURDATE(), '" + type + "')";
                 stmt.executeUpdate(query);
-            } else if ("Student".equals(getUserType())) {
+            } else if ("Student".equals(getUserType(getMedicareNumber()))) {
                 String query = "INSERT INTO Infection (medicareNumbEmployee, medicareNumbStudent, date, type) " +
                         "VALUES (" + null + ", " + Integer.parseInt(medicareNumbStudent) + ", CURDATE(), '" + type + "')";
                 stmt.executeUpdate(query);
@@ -210,7 +208,7 @@ public class UserController {
     }
 
     // Method to update ScheduledAt table for employees
-    private void updateScheduledAtTableForEmployee(int medicareNumb) {
+    static void updateScheduledAtTableForEmployee(int medicareNumb) {
         try {
             Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
             Statement stmt = con.createStatement();
@@ -249,13 +247,13 @@ public class UserController {
         return medicareNumber;
     }
 
-    private String getUserType() {
+   static String getUserType(int medicareNumb) {
         String userType = null;
         try {
             Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
             Statement stmt = con.createStatement();
 
-            String query = "SELECT type FROM User WHERE username = '" + usernameforclass + "'";
+            String query = "SELECT type FROM User WHERE medicareNumb = '" + medicareNumb + "'";
             ResultSet resultSet = stmt.executeQuery(query);
 
             if (resultSet.next()) {
@@ -270,23 +268,23 @@ public class UserController {
         return userType;
     }
 
-    private String getFacilityName(int medicareNumb) {
+    private static String getFacilityName(int medicareNumb) {
         String facilityName = null;
         try {
             Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
             Statement stmt = con.createStatement();
 
-            if(getUserType().equalsIgnoreCase("Employee")) {
+            if(getUserType(medicareNumb).equalsIgnoreCase("Employee")) {
                 String query = "SELECT f.name FROM Facility f " +
-                        "JOIN ScheduledAt sa ON sa.facilityId = f.facilityId " +
-                        "WHERE sa.medicareNumb = '" + medicareNumb + "'";
+                        "JOIN WorksAt wa ON wa.facilityId = f.facilityId " +
+                        "WHERE wa.medicareNumb = '" + medicareNumb + "'";
                 ResultSet resultSet = stmt.executeQuery(query);
                 if (resultSet.next()) {
                     facilityName = resultSet.getString("name");
                 }
                 resultSet.close();
             }
-            else if (getUserType().equalsIgnoreCase("Student")) {
+            else if (getUserType(medicareNumb).equalsIgnoreCase("Student")) {
                 String query = "SELECT f.name FROM Facility f " +
                         "JOIN StudiesAt sa ON sa.facilityId = f.facilityId " +
                         "WHERE sa.medicareNumb = '" + medicareNumb + "'";
@@ -304,13 +302,13 @@ public class UserController {
         return facilityName;
     }
 
-    private String getFullName() {
+    private static String getFullName(int medicareNumb) {
         String fullName = null;
         try {
             Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
             Statement stmt = con.createStatement();
 
-            String query = "SELECT CONCAT(firstName, ' ', lastName) AS fullName FROM User WHERE username = '" + usernameforclass + "'";
+            String query = "SELECT CONCAT(firstName, ' ', lastName) AS fullName FROM User WHERE medicareNumb = '" + medicareNumb + "'";
             ResultSet resultSet = stmt.executeQuery(query);
 
             if (resultSet.next()) {
