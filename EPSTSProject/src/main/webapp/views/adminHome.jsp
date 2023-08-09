@@ -36,16 +36,74 @@
         <div class="col-sm-3 pt-4">
             <div class="card" style="background-color: white;">
                 <div class="card-body text-center">
+                    <h4 class="card-title">Ministries</h4>
+                    <p class="card-text">Manage all ministries here</p>
+                    <a href="/admin/ministries" class="card-link btn btn-primary">Manage</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3 pt-4">
+            <div class="card" style="background-color: white;">
+                <div class="card-body text-center">
+                    <h4 class="card-title">Facilities</h4>
+                    <p class="card-text">Manage all facilities here</p>
+                    <a href="/admin/facilities" class="card-link btn btn-primary">Manage</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row justify-content-center">
+        <div class="col-sm-3 pt-4">
+            <div class="card" style="background-color: white;">
+                <div class="card-body text-center">
+                    <h4 class="card-title">Infected</h4>
+                    <p class="card-text">Manage all infected people here</p>
+                    <a href="/admin/infected" class="card-link btn btn-primary">Manage</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3 pt-4">
+            <div class="card" style="background-color: white;">
+                <div class="card-body text-center">
                     <h4 class="card-title">Users</h4>
-                    <p>---------------------------------------------</p>
-                    <p class="card-text">Manage all employees/students <br> here</p>
+                    <p class="card-text">Manage all users here</p>
                     <a href="/admin/users" class="card-link btn btn-primary">Manage</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3 pt-4">
+            <div class="card" style="background-color: white;">
+                <div class="card-body text-center">
+                    <h4 class="card-title">Vaccinated</h4>
+                    <p class="card-text">Manage all vaccinated people here</p>
+                    <a href="/admin/vaccinated" class="card-link btn btn-primary">Manage</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row justify-content-center">
+        <div class="col-sm-3 pt-4">
+            <div class="card" style="background-color: white;">
+                <div class="card-body text-center">
+                    <h4 class="card-title">Students</h4>
+                    <p class="card-text">Manage all students here</p>
+                    <a href="/admin/students" class="card-link btn btn-primary">Manage</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-3 pt-4">
+            <div class="card" style="background-color: white;">
+                <div class="card-body text-center">
+                    <h4 class="card-title">Employees</h4>
+                    <p class="card-text">Manage all employees here</p>
+                    <a href="/admin/employees" class="card-link btn btn-primary">Manage</a>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
+<br><br><br>
 <script>
     function logout() {
         document.getElementById('logoutForm').submit();

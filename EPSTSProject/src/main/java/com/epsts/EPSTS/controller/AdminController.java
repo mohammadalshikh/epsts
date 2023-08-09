@@ -1,5 +1,7 @@
 package com.epsts.EPSTS.controller;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.*;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
@@ -7,9 +9,7 @@ import java.util.*;
 import java.util.Date;
 
 
-import com.epsts.EPSTS.Employee;
-import com.epsts.EPSTS.ScheduleItem;
-import com.epsts.EPSTS.UserItem;
+import com.epsts.EPSTS.*;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.stereotype.Controller;
@@ -75,6 +75,75 @@ public class AdminController {
             return "redirect:/admin";
         else
             return "adminHome";
+    }
+
+    @GetMapping("/admin/ministries")
+    public String ministries(Model model) {
+        if (adminlogcheck == 0) {
+            return "redirect:/admin";
+        } else {
+            ArrayList<MinistryItem> ministryItems = new ArrayList<>();
+            try {
+                Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+                Statement stmt = con.createStatement();
+
+                String query = "SELECT * FROM Ministry";
+                ResultSet scheduleResult = stmt.executeQuery(query);
+
+                while (scheduleResult.next()) {
+                    String name = scheduleResult.getString("name");
+                    int headOfficeID = scheduleResult.getInt("facilityId");
+                    String headOfficeName = getFacilityName(headOfficeID);
+                    Facility headOfficeFacility = new Facility(headOfficeName, headOfficeID);
+                    ArrayList<Facility> facilities = getAllFacilitiesForMinistry(name);
+                    MinistryItem ministryItem = new MinistryItem(name, headOfficeFacility, facilities);
+                    ministryItems.add(ministryItem);
+                }
+                model.addAttribute("ministryItems", ministryItems);
+            }
+            catch (Exception e) {
+
+            }
+            return "ministries";
+        }
+    }
+
+    @GetMapping("/admin/facilities")
+    public String facilities(Model model) {
+        if (adminlogcheck == 0) {
+            return "redirect:/admin";
+        } else {
+            ArrayList<FacilityItem> facilityItems = new ArrayList<>();
+            try {
+                Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+                Statement stmt = con.createStatement();
+
+                String query = "SELECT * FROM Facility";
+                ResultSet scheduleResult = stmt.executeQuery(query);
+
+                while (scheduleResult.next()) {
+                    int facilityID = scheduleResult.getInt("facilityId");
+                    String name = scheduleResult.getString("name");
+                    String ministryName = getMinistryName(facilityID);
+                    String province = scheduleResult.getString("province");
+                    String address = scheduleResult.getString("address");
+                    String city = scheduleResult.getString("city");
+                    int capacity = scheduleResult.getInt("capacity");
+                    String postalCode = scheduleResult.getString("postalCode");
+                    String webAddress = scheduleResult.getString("webAddress");
+                    String type = scheduleResult.getString("type");
+                    String email = scheduleResult.getString("email");
+
+                    FacilityItem facilityItem = new FacilityItem(facilityID, name, ministryName, province, address, city, capacity, postalCode, webAddress, type, email);
+                    facilityItems.add(facilityItem);
+                }
+                model.addAttribute("facilityItems", facilityItems);
+            }
+            catch (Exception e) {
+
+            }
+            return "facilities";
+        }
     }
 
     @GetMapping("/admin/users")
@@ -176,51 +245,6 @@ public class AdminController {
         redirectAttributes.addFlashAttribute("vaccinatedMessage", "Person with medicare number: " + medicareNumb + " has been declared vaccinated.");
 
         return "redirect:/admin/users";
-    }
-
-
-    @ResponseBody
-    @GetMapping("/checkUsernameAvailability")
-    public Map<String, Boolean> checkUsernameAvailability(@RequestParam("username") String username) {
-        Map<String, Boolean> response = new HashMap<>();
-        try {
-            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
-            PreparedStatement pst = con.prepareStatement("SELECT COUNT(*) FROM User WHERE username = ?;");
-            pst.setString(1, username);
-            ResultSet rs = pst.executeQuery();
-            if (rs.next()) {
-                int count = rs.getInt(1);
-                response.put("exists", count > 0);
-            } else {
-                response.put("exists", false);
-            }
-        } catch (Exception e) {
-            System.out.println("Exception:" + e);
-            response.put("exists", false);
-        }
-        return response;
-    }
-
-    @ResponseBody
-    @GetMapping("/checkEmailAvailability")
-    public Map<String, Boolean> checkEmailAvailability(@RequestParam("email") String email) {
-        Map<String, Boolean> response = new HashMap<>();
-        try {
-            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
-            PreparedStatement pst = con.prepareStatement("SELECT COUNT(*) FROM User WHERE email = ?;");
-            pst.setString(1, email);
-            ResultSet rs = pst.executeQuery();
-            if (rs.next()) {
-                int count = rs.getInt(1);
-                response.put("exists", count > 0);
-            } else {
-                response.put("exists", false);
-            }
-        } catch (Exception e) {
-            System.out.println("Exception:" + e);
-            response.put("exists", false);
-        }
-        return response;
     }
 
     @EnableScheduling
@@ -371,4 +395,87 @@ public class AdminController {
         return employees;
     }
 
+    private String getFacilityName(int facilityID) {
+        String facilityName = null;
+        try {
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+            Statement stmt = con.createStatement();
+
+                String query = "SELECT f.name FROM Facility f " +
+                        "WHERE f.facilityId = '" + facilityID + "'";
+                ResultSet resultSet = stmt.executeQuery(query);
+                if (resultSet.next()) {
+                    facilityName = resultSet.getString("name");
+                }
+                resultSet.close();
+        } catch (Exception e) {
+            System.out.println("Exception:" + e);
+        }
+        return facilityName;
+    }
+
+    private String getMinistryName(int facilityID) {
+        String ministryName = null;
+        try {
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+            Statement stmt = con.createStatement();
+
+            String query = "SELECT h.ministryName FROM HasFacilities h " +
+                    "WHERE h.facilityId = '" + facilityID + "'";
+            ResultSet resultSet = stmt.executeQuery(query);
+            if (resultSet.next()) {
+                ministryName = resultSet.getString("ministryName");
+            }
+            resultSet.close();
+        } catch (Exception e) {
+            System.out.println("Exception:" + e);
+        }
+        return ministryName;
+    }
+
+    private ArrayList<Facility> getAllFacilitiesForMinistry(String ministryName) {
+        ArrayList<Facility> facilities = new ArrayList<>();
+        try {
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+            Statement stmt = con.createStatement();
+
+            String query = "SELECT h.facilityId FROM HasFacilities h " +
+                    "WHERE h.ministryName = '" + ministryName + "'";
+            ResultSet resultSet = stmt.executeQuery(query);
+            while (resultSet.next()) {
+                int facilityID = resultSet.getInt("facilityId");
+                if (facilityID == getHeadOfficeID(ministryName)) {
+                    continue;
+                }
+                else {
+                    String facilityName = getFacilityName(facilityID);
+                    Facility facility = new Facility(facilityName, facilityID);
+                    facilities.add(facility);
+                }
+            }
+            resultSet.close();
+        } catch (Exception e) {
+            System.out.println("Exception:" + e);
+        }
+        return facilities;
+    }
+
+    private int getHeadOfficeID(String ministryName) {
+        int headOfficeID = 0;
+        try {
+            Connection con = DriverManager.getConnection("jdbc:mysql://localhost:3306/EPSTS", "root", "12345678");
+            Statement stmt = con.createStatement();
+
+            String query = "SELECT h.facilityId FROM HeadOffice h " +
+                    "WHERE h.ministryName = '" + ministryName + "'";
+            ResultSet resultSet = stmt.executeQuery(query);
+            if (resultSet.next()) {
+                headOfficeID = resultSet.getInt("facilityId");
+            }
+        }
+        catch (Exception e) {
+        System.out.println("Exception:" + e);
+        }
+        return headOfficeID;
+    }
 }

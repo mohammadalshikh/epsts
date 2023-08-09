@@ -4,37 +4,37 @@ START TRANSACTION;
 SET time_zone = "+00:00";
 
 CREATE TABLE `Type` (
-    `typeID` INT NOT NULL AUTO_INCREMENT,
-    `name` VARCHAR(255) NOT NULL,
-    PRIMARY KEY (`typeID`),
-    INDEX `name_idx` (`name`)
+                        `typeID` INT NOT NULL AUTO_INCREMENT,
+                        `name` VARCHAR(255) NOT NULL,
+                        PRIMARY KEY (`typeID`),
+                        INDEX `name_idx` (`name`)
 );
 
 
 INSERT INTO `Type` (`typeID`, `name`) VALUES
-    (1, 'Admin'),
-    (2, 'Employee'),
-    (3, 'Student');
+                                          (1, 'Admin'),
+                                          (2, 'Employee'),
+                                          (3, 'Student');
 
 
 CREATE TABLE `User` (
-    `userID` INT NOT NULL AUTO_INCREMENT,
-    `firstName` VARCHAR(45) NOT NULL,
-    `lastName` VARCHAR(45) NOT NULL,
-    `username` VARCHAR(45) NOT NULL UNIQUE,
-    `password` VARCHAR(64) NOT NULL DEFAULT '123',
-    `type` VARCHAR(255) NOT NULL,
-    `workLocation` VARCHAR(255) DEFAULT NULL,
-    `address` VARCHAR(255) DEFAULT NULL,
-    `email` VARCHAR(110) UNIQUE NOT NULL,
-    `medicareNumb` int(10) UNIQUE NOT NULL,
-    PRIMARY KEY (`userID`),
-    INDEX `type_idx` (`type` ASC) VISIBLE,
-    CONSTRAINT `type`
-    FOREIGN KEY (`type`)
-    REFERENCES `EPSTS`.`Type` (`name`)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE);
+                        `userID` INT NOT NULL AUTO_INCREMENT,
+                        `firstName` VARCHAR(45) NOT NULL,
+                        `lastName` VARCHAR(45) NOT NULL,
+                        `username` VARCHAR(45) NOT NULL UNIQUE,
+                        `password` VARCHAR(64) NOT NULL DEFAULT '123',
+                        `type` VARCHAR(255) NOT NULL,
+                        `workLocation` VARCHAR(255) DEFAULT NULL,
+                        `address` VARCHAR(255) DEFAULT NULL,
+                        `email` VARCHAR(110) UNIQUE NOT NULL,
+                        `medicareNumb` int(10) UNIQUE NOT NULL,
+                        PRIMARY KEY (`userID`),
+                        INDEX `type_idx` (`type` ASC) VISIBLE,
+                        CONSTRAINT `type`
+                            FOREIGN KEY (`type`)
+                                REFERENCES `EPSTS`.`Type` (`name`)
+                                ON DELETE CASCADE
+                                ON UPDATE CASCADE);
 
 
 INSERT INTO `User` (`userID`, `firstName`, `lastName`, `username`, `password`, `type`, `email`, `medicareNumb`)
@@ -565,8 +565,51 @@ END;
 
 //
 
+DELIMITER //
+
+-- Trigger to prevent conflicting schedule times
+CREATE TRIGGER tr_prevent_conflicting_schedule_update
+    BEFORE UPDATE ON ScheduledAt
+    FOR EACH ROW
+BEGIN
+    DECLARE conflict_count INT;
+
+    -- Check for conflicting schedule times
+    SET conflict_count = (
+        SELECT COUNT(*)
+        FROM ScheduledAt S
+        WHERE S.medicareNumb = NEW.medicareNumb
+          AND S.date = NEW.date
+          AND (
+                (NEW.startTime BETWEEN S.startTime AND S.endTime)
+                OR (NEW.endTime BETWEEN S.startTime AND S.endTime)
+            )
+    );
+
+    IF conflict_count > 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Employee is already scheduled at conflicting times.';
+    END IF;
+
+    -- Check for minimum 1 hour duration between schedules on the same day
+    SET conflict_count = (
+        SELECT COUNT(*)
+        FROM ScheduledAt S
+        WHERE S.medicareNumb = NEW.medicareNumb
+          AND S.date = NEW.date
+          AND (TIMESTAMPDIFF(HOUR, S.endTime, NEW.startTime) < 1)
+    );
+
+    IF conflict_count > 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'There should be at least 1 hour between consecutive schedules.';
+    END IF;
+END;
 
 //
+
+
+DELIMITER //
 
 -- Trigger to remove schedules for infected employees
 CREATE TRIGGER tr_remove_schedules_infected
@@ -618,14 +661,14 @@ CREATE TRIGGER tr_auto_generate_schedule_vaccinated
     FOR EACH ROW
 BEGIN
     DECLARE schedule_date DATE;
-    SET schedule_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY); -- Start from tomorrow
+    SET schedule_date = DATE_ADD(NEW.date, INTERVAL 1 DAY); -- Start 1 day after V.date
 
     IF NOT EXISTS (
         SELECT 1
         FROM ScheduledAt SA
         WHERE SA.medicareNumb = NEW.medicareNumbEmployee
     ) THEN
-        WHILE schedule_date <= DATE_ADD(CURDATE(), INTERVAL 28 DAY) DO -- Next 4 weeks
+        WHILE schedule_date <= DATE_ADD(NEW.date, INTERVAL 28 DAY) DO -- Next 4 weeks
         IF NEW.date >= DATE_SUB(schedule_date, INTERVAL 6 MONTH) THEN
             INSERT INTO ScheduledAt (medicareNumb, facilityId, date, startTime, endTime)
             SELECT NEW.medicareNumbEmployee, WA.facilityId, schedule_date, '08:00:00', '16:00:00'
@@ -643,6 +686,7 @@ END;
 //
 
 DELIMITER ;
+
 
 
 
@@ -847,3 +891,347 @@ BEGIN
              );
 END;
 
+
+ALTER TABLE Facility ADD type varchar(255);
+
+UPDATE Facility
+SET type = 'Head Office'
+WHERE facilityId = 1;
+
+UPDATE Facility
+SET type = 'Educational Facility'
+WHERE facilityId = 2;
+
+UPDATE Facility
+SET type = 'Head Office'
+WHERE facilityId = 3;
+
+UPDATE Facility
+SET type = 'Educational Facility'
+WHERE facilityId = 4;
+
+UPDATE Facility
+SET type = 'Educational Facility'
+WHERE facilityId = 5;
+
+UPDATE Facility
+SET type = 'Educational Facility'
+WHERE facilityId = 6;
+
+UPDATE Facility
+SET type = 'Educational Facility'
+WHERE facilityId = 7;
+
+UPDATE Facility
+SET type = 'Educational Facility'
+WHERE facilityId = 8;
+
+UPDATE Facility
+SET type = 'Management Facility'
+WHERE facilityId = 9;
+
+UPDATE Facility
+SET type = 'Management Facility'
+WHERE facilityId = 10;
+
+ALTER TABLE employee
+    ADD isPrincipal boolean;
+
+SET SQL_SAFE_UPDATES = 0;
+
+
+
+INSERT INTO Employee (medicareNumb, medicareExp, firstName, lastName, telephoneNumb, dateOfBirth, address, city, email, postalCode, province, citizenship, isPresident)
+
+VALUES
+
+    (154256358, '2024-08-01', 'Joseph', 'Williams', '4389875241', '1986-08-23', '532 Birch Boulevard', 'Laval', 'joseph.williams@gmail.com', 'H3X 7L3', 'Quebec', 'American', FALSE),
+    (265487987, '2025-06-01', 'Maryssa', 'Redd', '5148902143', '1984-04-26', '548 Tan Avenue', 'Montreal', 'maryssa.redd@gmail.com', 'H7C 1P6', 'Quebec', 'Canadian', FALSE),
+    (456258753, '2023-12-01', 'Phillipe', 'Legars', '5149876542', '1983-09-27', '111 Plastic Street', 'Dorval', 'phillipe.legars@gmail.com', 'H5X 0F7', 'Quebec', 'French', FALSE),
+    (147963258, '2024-05-01', 'Guillaume', 'Willis', '4385692357', '1980-11-24', '852 Rhodesia Avenue', 'Montreal', 'guillaume.willis@gmail.com', 'H4G 3D5', 'Quebec', 'Canadian', FALSE),
+    (125985478, '2024-07-01', 'Tania', 'Bridgers', '5148754561', '1978-08-27', '232 Willholm Avenue', 'Montreal', 'tania.bridgers@gmail.com', 'H2X 6O8', 'Quebec', 'Canadian', FALSE),
+    (985632145, '2024-10-01', 'Clarice', 'Simon', '4387531458', '1987-04-05', '574 Precious Lane', 'Montreal', 'clarice.simon@gmail.com', 'H8K 5G7', 'Quebec', 'Canadian', FALSE);
+
+
+INSERT INTO WorksAt (medicareNumb, facilityID, startDate, endDate, role, specialisation, schoolCounselor, programDirector, schoolAdministrator)
+
+VALUES
+
+    (154256358, 2, '2009-08-24', NULL, 'Principal', NULL, NULL, NULL, NULL),
+    (265487987, 4, '2008-04-25', NULL, 'Principal', NULL, NULL, NULL, NULL),
+    (456258753, 5, '2012-07-05', NULL, 'Principal', NULL, NULL, NULL, NULL),
+    (147963258, 6, '2013-08-12', NULL, 'Principal', NULL, NULL, NULL, NULL),
+    (125985478, 7, '2018-03-24', NULL, 'Principal', NULL, NULL, NULL, NULL),
+    (985632145, 8, '2020-07-08', NULL, 'Principal', NULL, NULL, NULL, NULL);
+
+
+
+UPDATE employee
+SET isPrincipal = 0
+WHERE 1=1;
+
+UPDATE employee
+SET isPrincipal = 1
+WHERE medicareNumb = 154256358;
+
+UPDATE employee
+SET isPrincipal = 1
+WHERE medicareNumb = 265487987;
+
+UPDATE employee
+SET isPrincipal = 1
+WHERE medicareNumb = 456258753;
+
+UPDATE employee
+SET isPrincipal = 1
+WHERE medicareNumb = 147963258;
+
+UPDATE employee
+SET isPrincipal = 1
+WHERE medicareNumb = 125985478;
+
+UPDATE employee
+SET isPrincipal = 1
+WHERE medicareNumb = 985632145;
+
+UPDATE Ministry
+SET facilityId = 1
+WHERE name = 'English School Board';
+
+UPDATE Ministry
+SET facilityId = 3
+WHERE name = 'French School Board';
+
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`, `type`) VALUES ('14', '102938475', '2023-07-28', 'COVID-19');
+
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`) VALUES ('15', '123456789', '2023-08-01');
+
+UPDATE `EPSTS`.`Infection` SET `type` = 'COVID-19' WHERE (`infectionId` = '15');
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`, `type`) VALUES ('16', '579312468', '2023-08-03', 'COVID-19');
+
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`, `type`) VALUES ('17', '864209753', '2023-08-04', 'COVID-19');
+
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`, `type`) VALUES ('18', '617283945', '2023-08-07', 'COVID-19');
+
+INSERT INTO `EPSTS`.`Employee` (`medicareNumb`, `medicareExp`, `firstName`, `lastName`, `telephoneNumb`, `dateOfBirth`, `address`, `city`, `email`, `postalCode`, `province`, `citizenship`, `isPresident`)
+VALUES ('960135267', '2024-04-01', 'Mike', 'Jones', '5146547890', '1998-02-10', '333 Willow Street', 'Montreal', 'MikeJones@gmail.com', 'H3A 4B6', 'Quebec', 'Canadian', '0');
+INSERT INTO `EPSTS`.`Employee` (`medicareNumb`, `medicareExp`, `firstName`, `lastName`, `telephoneNumb`, `dateOfBirth`, `address`, `city`, `email`, `postalCode`, `province`, `citizenship`, `isPresident`)
+VALUES ('364138998', '2024-03-01', 'Matt', 'Petra', '5147658901', '1992-09-18', '777 Oak Avenue', 'Pointe-Claire', 'MattPetra@gmail.com', 'H9R 2P3', 'Quebec', 'British', '0');
+
+
+INSERT INTO `EPSTS`.`Employee` (`medicareNumb`, `medicareExp`, `firstName`, `lastName`, `telephoneNumb`, `dateOfBirth`, `address`, `city`, `email`, `postalCode`, `province`, `citizenship`, `isPresident`)
+VALUES ('264893157', '2024-05-01', 'Ryan', 'John', '5142345678', '1996-07-03', '555 Birch Lane', 'Montreal', 'RyanJohn@gmail.com', 'H4G 3S2', 'Quebec', 'Mexican', '0');
+
+
+INSERT INTO `EPSTS`.`Employee` (`medicareNumb`, `medicareExp`, `firstName`, `lastName`, `telephoneNumb`, `dateOfBirth`, `address`, `city`, `email`, `postalCode`, `province`, `citizenship`, `isPresident`)
+VALUES ('184269333', '2024-02-01', 'Brick', 'Stan', '5148765432', '1989-04-2', '222 Elm Road', 'Dollard-des-Ormeaux', 'BrickStan@gmail.com', 'H9B 1R8', 'Quebec', 'American', '0');
+
+INSERT INTO `EPSTS`.`Employee` (`medicareNumb`, `medicareExp`, `firstName`, `lastName`, `telephoneNumb`, `dateOfBirth`, `address`, `city`, `email`, `postalCode`, `province`, `citizenship`, `isPresident`)
+VALUES ('298143122', '2024-02-01', 'Moe', 'Broski', '5145678901', '1997-01-15', '444 Maple Lane', 'Montreal', 'MoeBroski@gmail.com', 'H3C 2E9', 'Quebec', 'Mexican', '1');
+
+
+
+
+INSERT INTO `EPSTS`.`WorksAt` (`medicareNumb`, `facilityId`, `startDate`, `role`) VALUES ('960135267', '8', '2023-06-14', 'Secondary Teacher');
+
+INSERT INTO `EPSTS`.`WorksAt` (`medicareNumb`, `facilityId`, `startDate`, `role`) VALUES ('364138998', '8', '2022-06-04', 'Elementary Teacher');
+
+INSERT INTO `EPSTS`.`WorksAt` (`medicareNumb`, `facilityId`, `startDate`, `role`) VALUES ('264893157', '8', '2023-01-01', 'Secondary Teacher');
+
+INSERT INTO `EPSTS`.`WorksAt` (`medicareNumb`, `facilityId`, `startDate`, `role`) VALUES ('18426933', '8', '2022-01-01', 'Secondary Teacher');
+
+INSERT INTO `EPSTS`.`WorksAt` (`medicareNumb`, `facilityId`, `startDate`, `role`) VALUES ('298143122', '8', '2023-01-01', 'Secondary Teacher');
+
+
+INSERT INTO `EPSTS`.`Vaccine` (`vaccineId`, `medicareNumbEmployee`, `date`, `type`, `doseNumb`) VALUES ('11', '960135267', '2023-07-25', 'Pfizer', '1');
+
+INSERT INTO `EPSTS`.`Vaccine` (`vaccineId`, `medicareNumbEmployee`, `date`, `type`, `doseNumb`) VALUES ('12', '364138998', '2023-07-25', 'Pfizer', '1');
+
+INSERT INTO `EPSTS`.`Vaccine` (`vaccineId`, `medicareNumbEmployee`, `date`, `type`, `doseNumb`) VALUES ('13', '264893157', '2023-07-25', 'Pfizer', '2');
+
+INSERT INTO `EPSTS`.`Vaccine` (`vaccineId`, `medicareNumbEmployee`, `date`, `type`, `doseNumb`) VALUES ('14', '184269333', '2023-07-25', 'Pfizer', '1');
+
+INSERT INTO `EPSTS`.`Vaccine` (`vaccineId`, `medicareNumbEmployee`, `date`, `type`, `doseNumb`) VALUES ('15', '298143122', '2023-07-25', 'Pfizer', '1');
+
+ALTER TABLE Facility ADD email varchar(255);
+
+UPDATE Facility
+SET email = 'englishsb.headoffice@gmail.com'
+WHERE facilityId = 1;
+
+UPDATE Facility
+SET email = 'rosemont.elementary@gmail.com'
+WHERE facilityId = 2;
+
+UPDATE Facility
+SET email = 'frenchsb.headoffice@gmail.com'
+WHERE facilityId = 3;
+
+UPDATE Facility
+SET email = 'ecole.stleonarde@gmail.com'
+WHERE facilityId = 4;
+
+UPDATE Facility
+SET email = 'laval.high@gmail.com'
+WHERE facilityId = 5;
+
+UPDATE Facility
+SET email = 'goofy.secondary@gmail.com'
+WHERE facilityId = 6;
+
+UPDATE Facility
+SET email = 'abdur.specialhero@gmail.com'
+WHERE facilityId = 7;
+
+
+UPDATE Facility
+SET email = 'jean24.complete@gmail.com'
+WHERE facilityId = 8;
+
+UPDATE Facility
+SET email = 'dominique.datasci@gmail.com'
+WHERE facilityId = 9;
+
+UPDATE Facility
+SET email = 'anam.mgmt@gmail.com'
+WHERE facilityId = 10;
+
+INSERT INTO HeadOffice (facilityId, ministryName)
+VALUES
+    (1,'English School Board'),
+    (3,'French School Board');
+
+INSERT INTO `EPSTS`.`Facility` (`facilityId`, `name`, `province`, `address`, `city`, `capacity`, `phoneNumb`, `postalCode`, `webAddress`, type, email)
+VALUES
+    (11, 'Arabic Montreal Facility', 'Quebec', '122 Haram Street', 'Montreal', '22', '5149119111', 'H3Z 1K9', 'https://www.ArabicSchoolFacility.com', 'Educational Facility', 'arabic.montreal@gmail.com'),
+    ('12', 'Polish School', 'Quebec', '22 Kurwa', 'Montreal', '60', '5146850342', 'H6K 1Z4', 'https://www.PolishKurwa.com', 'Educational Facility', 'polish.school@gmail.com'),
+    ('13', 'Greek School Facility', 'Quebec', '36 Malaka', 'Montreal', '130', '51431344444', 'H9B 1K8', 'https://GreekMalakia.com', 'Educational Facility', 'greek.school@gmail.com'),
+    ('14', 'Arabic School Board', 'Quebec', '124 Haram Street', 'Montreal', '80', '51431344541', 'H9B 1K5', 'https://ArabicSB.com', 'Head Office', 'arabic.schoolboard@gmail.com'),
+    ('15', 'Polish School Board', 'Quebec', '25 Kurwa', 'Montreal', '100', '51431344526', 'H9B 1K7', 'https://PolishSB.com', 'Head Office', 'polish.schoolboard@gmail.com'),
+    ('16', 'Greek School Board', 'Quebec', '38 Malaka', 'Montreal', '150', '51431344987', 'H9B 1K4', 'https://GreekSB.com', 'Head Office', 'greek.schoolboard@gmail.com');
+
+INSERT INTO Ministry (name, facilityId)
+VALUES
+    ('Arabic School Board', NULL),
+    ('Polish School Board', NULL),
+    ('Greek School Board', NULL);
+
+UPDATE Ministry
+SET facilityId = 14
+WHERE name = 'Arabic School Board';
+
+UPDATE Ministry
+SET facilityId = 15
+WHERE name = 'Polish School Board';
+
+UPDATE Ministry
+SET facilityId = 16
+WHERE name = 'Greek School Board';
+
+INSERT INTO `EPSTS`.`HeadOffice` (`facilityId`, `ministryName`) VALUES ('14', 'Arabic School Board');
+INSERT INTO `EPSTS`.`HeadOffice` (`facilityId`, `ministryName`) VALUES ('15', 'Polish School Board');
+INSERT INTO `EPSTS`.`HeadOffice` (`facilityId`, `ministryName`) VALUES ('16', 'Greek School Board');
+
+
+
+
+INSERT INTO `EPSTS`.`HasFacilities` (`ministryName`, `facilityId`, `isGMF`, `isEF`) VALUES ('Arabic School Board', '11', '0', '1');
+INSERT INTO `EPSTS`.`HasFacilities` (`ministryName`, `facilityId`, `isGMF`, `isEF`) VALUES ('Polish School Board', '12', '0', '1');
+INSERT INTO `EPSTS`.`HasFacilities` (`ministryName`, `facilityId`, `isGMF`, `isEF`) VALUES ('Greek School Board', '13', '0', '1');
+INSERT INTO `EPSTS`.`HasFacilities` (`ministryName`, `facilityId`, `isGMF`, `isEF`) VALUES ('Arabic School Board', '14', '0', '0');
+INSERT INTO `EPSTS`.`HasFacilities` (`ministryName`, `facilityId`, `isGMF`, `isEF`) VALUES ('Polish School Board', '15', '0', '0');
+INSERT INTO `EPSTS`.`HasFacilities` (`ministryName`, `facilityId`, `isGMF`, `isEF`) VALUES ('Greek School Board', '16', '0', '0');
+
+INSERT INTO `EPSTS`.`EF` (`facilityId`, `primary_school`, `middle`, `high`) VALUES ('11', '0', '0', '1');
+INSERT INTO `EPSTS`.`EF` (`facilityId`, `primary_school`, `middle`, `high`) VALUES ('12', '0', '0', '1');
+INSERT INTO `EPSTS`.`EF` (`facilityId`, `primary_school`, `middle`, `high`) VALUES ('13', '0', '0', '1');
+
+
+INSERT INTO `EPSTS`.`Employee` (`medicareNumb`, `medicareExp`, `firstName`, `lastName`, `telephoneNumb`, `dateOfBirth`, `address`, `city`, `email`, `postalCode`, `province`, `citizenship`, `isPresident`, isPrincipal) VALUES ('592837461', '2024-02-01', 'Amanda', 'Wilson', '5146237890', '1994-03-12', '123 Oak Street', 'Montreal', 'amanda.wilson@gmail.com', 'H1W 4X7', 'Quebec', 'Canadian', '1', 0);
+
+INSERT INTO `EPSTS`.`Employee` (`medicareNumb`, `medicareExp`, `firstName`, `lastName`, `telephoneNumb`, `dateOfBirth`, `address`, `city`, `email`, `postalCode`, `province`, `citizenship`, `isPresident`, isPrincipal) VALUES ('781029346', '2024-02-01', 'David', 'Miller', '5145557890', '1986-07-20', '456 Maple Avenue', 'Dorval', 'david.miller@gmail.com', 'H4S 2P9', 'Quebec', 'American', '1', 0);
+
+INSERT INTO `EPSTS`.`Employee` (`medicareNumb`, `medicareExp`, `firstName`, `lastName`, `telephoneNumb`, `dateOfBirth`, `address`, `city`, `email`, `postalCode`, `province`, `citizenship`, `isPresident`, isPrincipal) VALUES ('895746132', '2024-02-01', 'Luisa', 'Garcia', '5147894560', '1993-12-05', '789 Pine Lane', 'Laval', 'luisa.garcia@gmail.com', 'H7V 3T5', 'Quebec', 'Mexican', '1', 0);
+
+
+INSERT INTO `EPSTS`.`President` (`medicareNumb`, `facilityId`, `startDate`) VALUES ('592837461', '14', '2015-09-30');
+
+INSERT INTO `EPSTS`.`President` (`medicareNumb`, `facilityId`, `startDate`) VALUES ('781029346', '15', '2016-06-15');
+
+INSERT INTO `EPSTS`.`President` (`medicareNumb`, `facilityId`, `startDate`) VALUES ('895746132', '16', '2018-08-08');
+
+INSERT INTO Student (`medicareNumb`, `medicareExp`, `firstName`, `lastName`, `telephoneNumb`, `dateOfBirth`, `address`, `city`, `email`, `postalCode`, `province`, `citizenship`)
+VALUES
+    (879740274, '2023-12-01', 'Johnny', 'Borger', 5142944589,
+     '2000-06-03', '400 Montreal Street', 'Montreal',
+     'JohnnyBorger@gmail.com', 'H3A 8X3', 'Quebec', 'American'),
+    (645987125, '2024-12-01', 'Mo', 'Einer', 5149275478,
+     '2000-12-07', '80 Rue Canada', 'Dorval', 'MoEiner@gmail.com',
+     'H9S 5E4', 'Quebec', 'Syrian'),
+    (874563215, '2024-12-01', 'Tibber', 'Anne', 5149278456,
+     '2002-12-07', '80 Rue Canada', 'Dorval', 'TibberAnne@gmail.com',
+     'H9S 5E4', 'Quebec', 'Syrian');
+
+
+INSERT INTO StudiesAt (medicareNumb, facilityId, startDate, endDate,
+                       currentLevel)
+VALUES
+    (879740274, 11, '2019-08-22', NULL, 'high'),
+    (645987125, 12, '2020-08-29', NULL, 'high'),
+    (874563215, 13, '2019-08-22', NULL, 'high');
+
+
+INSERT INTO `EPSTS`.`Employee` (`medicareNumb`, `medicareExp`, `firstName`, `lastName`, `telephoneNumb`, `dateOfBirth`, `address`, `city`, `email`, `postalCode`, `province`, `citizenship`, `isPresident`) VALUES ('109283746', '2023-08-01', 'Lucas', 'Miller', '5148765432', '1989-09-03', '789 Cherry Lane', 'Montreal', 'lucas.miller@gmail.com', 'H3C 1A1', 'Quebec', 'Canadian', '0');
+
+
+INSERT INTO `EPSTS`.`Employee` (`medicareNumb`, `medicareExp`, `firstName`, `lastName`, `telephoneNumb`, `dateOfBirth`, `address`, `city`, `email`, `postalCode`, `province`, `citizenship`, `isPresident`) VALUES ('219387465', '2024-08-01', 'Natalie', 'Chen', '5142345678', '1997-02-18', '456 Oak Street', 'Dorval', 'natalie.chen@gmail.com', 'H4S 2P9', 'Quebec', 'Chinese', '0');
+
+
+INSERT INTO `EPSTS`.`Employee` (`medicareNumb`, `medicareExp`, `firstName`, `lastName`, `telephoneNumb`, `dateOfBirth`, `address`, `city`, `email`, `postalCode`, `province`, `citizenship`, `isPresident`) VALUES ('318475926', '2024-08-01', 'David', 'Lopez', '5143456789', '1984-11-10', '101 Maple Avenue', 'Laval', 'david.lopez@gmail.com', 'H7X 3T7', 'Quebec', 'Mexican', '0');
+
+INSERT INTO `EPSTS`.`Employee` (`medicareNumb`, `medicareExp`, `firstName`, `lastName`, `telephoneNumb`, `dateOfBirth`, `address`, `city`, `email`, `postalCode`, `province`, `citizenship`, `isPresident`) VALUES ('426831975', '2024-01-01', 'Emma', 'Wilson', '5147894567', '1991-05-30', '222 Rose Lane', 'Montreal', 'emma.wilson@gmail.com', 'H3B 2X8', 'Quebec', 'Canadian', '0');
+
+INSERT INTO `EPSTS`.`Employee` (`medicareNumb`, `medicareExp`, `firstName`, `lastName`, `telephoneNumb`, `dateOfBirth`, `address`, `city`, `email`, `postalCode`, `province`, `citizenship`, `isPresident`) VALUES ('539284617', '2024-01-01', 'Liam', 'Garcia', '5145678901', '1993-10-12', '555 Oak Avenue', 'Laval', 'liam.garcia@gmail.com', 'H7W 3R5', 'Quebec', 'Mexican', '0');
+
+
+INSERT INTO `EPSTS`.`WorksAt` (`medicareNumb`, `facilityId`, `startDate`, `role`, `schoolCounselor`, `programDirector`, `schoolAdministrator`) VALUES ('109283746', '8', '2020-01-01', 'Secondary Teacher', '1', '0', '0');
+
+INSERT INTO `EPSTS`.`WorksAt` (`medicareNumb`, `facilityId`, `startDate`, `role`, `schoolCounselor`, `programDirector`, `schoolAdministrator`) VALUES ('219387465', '11', '2019-03-01', 'Secondary Teacher', '1', '0', '0');
+
+INSERT INTO `EPSTS`.`WorksAt` (`medicareNumb`, `facilityId`, `startDate`, `role`, `schoolCounselor`, `programDirector`, `schoolAdministrator`) VALUES ('318975926', '12', '2018-01-01', 'Secondary Teacher', '1', '0', '0');
+
+INSERT INTO `EPSTS`.`WorksAt` (`medicareNumb`, `facilityId`, `startDate`, `role`, `schoolCounselor`, `programDirector`, `schoolAdministrator`) VALUES ('426831975', '13', '2012-03-01', 'Secondary Teacher', '1', '0', '0');
+
+INSERT INTO `EPSTS`.`WorksAt` (`medicareNumb`, `facilityId`, `startDate`, `role`, `schoolCounselor`, `programDirector`, `schoolAdministrator`) VALUES ('539284617', '4', '2016-01-01', 'Secondary Teacher', '1', '0', '0');
+
+
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`, `type`) VALUES ('19', '109283746', '2023-01-03', 'COVID-19');
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`, `type`) VALUES ('20', '109283746', '2023-02-04', 'COVID-19');
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`, `type`) VALUES ('21', '109283746', '2023-03-05', 'COVID-19');
+
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`, `type`) VALUES ('22', '219387465', '2023-01-01', 'COVID-19');
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`, `type`) VALUES ('23', '219387465', '2023-02-01', 'COVID-19');
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`, `type`) VALUES ('24', '219387465', '2023-03-05', 'COVID-19');
+
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`, `type`) VALUES ('25', '426831975', '2023-02-01', 'COVID-19');
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`, `type`) VALUES ('26', '426831975', '2023-01-06', 'COVID-19');
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`, `type`) VALUES ('27', '426831975', '2023-03-08', 'COVID-19');
+
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`, `type`) VALUES ('28', '318475926', '2023-01-01', 'COVID-19');
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`, `type`) VALUES ('29', '318475926', '2023-02-01', 'COVID-19');
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`) VALUES ('30', '318475926', '2023-03-01');
+
+UPDATE `EPSTS`.`Infection`
+SET `type` = 'COVID-19'
+WHERE (`infectionId` = '30');
+
+
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`, `type`) VALUES ('31', '539284617', '2023-01-01', 'COVID-19');
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`, `type`) VALUES ('32', '539284617', '2023-03-01', 'COVID-19');
+INSERT INTO `EPSTS`.`Infection` (`infectionId`, `medicareNumbEmployee`, `date`, `type`) VALUES ('33', '539284617', '2023-05-01', 'COVID-19');
+
+INSERT INTO `epsts`.`vaccine` (`vaccineId`, `medicareNumbEmployee`, `date`, `type`, `doseNumb`) VALUES ('16', '109283746', '2023-07-25', 'Moderna', '1');
+INSERT INTO `epsts`.`vaccine` (`vaccineId`, `medicareNumbEmployee`, `date`, `type`, `doseNumb`) VALUES ('17', '219387465', '2023-07-25', 'Johnson & Johnson', '1');
+INSERT INTO `epsts`.`vaccine` (`vaccineId`, `medicareNumbEmployee`, `date`, `type`, `doseNumb`) VALUES ('18', '318475926', '2023-07-25', 'Pfizer', '1');
+INSERT INTO `epsts`.`vaccine` (`vaccineId`, `medicareNumbEmployee`, `date`, `type`, `doseNumb`) VALUES ('19', '426831975', '2023-07-25', 'Pfizer', '1');
+INSERT INTO `epsts`.`vaccine` (`vaccineId`, `medicareNumbEmployee`, `date`, `type`, `doseNumb`) VALUES ('20', '539284617', '2023-07-25', 'Pfizer', '1');
